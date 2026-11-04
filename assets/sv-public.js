@@ -4,7 +4,7 @@
   var H = { apikey: C.key, Authorization: 'Bearer ' + C.key };
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var get = function (t) { return fetch(C.url + '/rest/v1/' + t + '?select=*&published=eq.true&order=created_at.desc', { headers: H }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }); };
+  var get = function (t, o) { return fetch(C.url + '/rest/v1/' + t + '?select=*&published=eq.true&order=' + (o || 'created_at.desc'), { headers: H }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }); };
 
   /* ---- Staff login entry (icon only, keeps the header untouched) ---- */
   var ul = $('.nav-links');
@@ -40,7 +40,7 @@
     var first = ng.firstElementChild;
     items.forEach(function (n) {
       var d = new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase();
-      var a = document.createElement('article'); a.className = 'news-card'; a.setAttribute('data-dyn', '1');
+      var a = document.createElement('article'); a.className = 'news-card'; a.setAttribute('data-dyn', '1'); a.dataset.imgs = JSON.stringify(n.images && n.images.length ? n.images : [n.image_url]);
       a.innerHTML = '<div class="news-img-wrapper"><img src="' + esc(n.image_url) + '" alt="' + esc(n.title) + '"><div class="news-date">' + d + '</div></div><div class="news-content"><div class="news-category"><i class="fa-solid fa-newspaper"></i> ' + esc(n.category || 'News') + '</div><h3 class="news-title">' + esc(n.title) + '</h3><p class="news-desc">' + esc((n.body || '').slice(0, 180)) + '</p><div class="news-full-text">' + (n.body || '').split(/\n+/).map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('') + '</div><a href="#" class="read-more-btn">Read Article <i class="fa-solid fa-arrow-right-long"></i></a></div>';
       ng.insertBefore(a, first);
     });
@@ -48,28 +48,63 @@
       var b = e.target.closest('.read-more-btn'), c = b && b.closest('[data-dyn]'); if (!c) return; e.preventDefault();
       $('#modalImg').src = $('img', c).src; $('#modalDate').innerText = $('.news-date', c).innerText; $('#modalCategory').innerHTML = $('.news-category', c).innerHTML;
       $('#modalTitle').innerText = $('.news-title', c).innerText; $('#modalFullText').innerHTML = $('.news-full-text', c).innerHTML;
+      var im = JSON.parse(c.dataset.imgs || '[]'); if (im.length > 1) { $('#modalFullText').insertAdjacentHTML('beforeend', '<div class="svg-th">' + im.map(function (u) { return '<img src="' + esc(u) + '" style="width:72px;height:54px;object-fit:cover;border-radius:6px;margin:12px 8px 0 0;cursor:pointer;border:1px solid rgba(212,175,55,.35)">'; }).join('') + '</div>'); $('#modalFullText .svg-th').onclick = function (e) { if (e.target.tagName === 'IMG') $('#modalImg').src = e.target.src; }; }
       $('#newsModal').classList.add('active'); document.body.classList.add('modal-open');
     });
   });
 
-  /* ---- Live PROJECTS (same card design, filters + lightbox) ---- */
+  /* ---- Gallery lightbox (multi-image projects) ---- */
+  function openGal(im, i) {
+    var o = $('#svlb');
+    if (!o) {
+      var st = document.createElement('style');
+      st.textContent = '#svlb{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:100002;display:none;align-items:center;justify-content:center}#svlb.on{display:flex}#svlb img{max-width:92vw;max-height:78vh;object-fit:contain;border:1px solid rgba(212,175,55,.3)}#svlb button{position:absolute;background:rgba(0,0,0,.65);border:1px solid rgba(212,175,55,.5);color:#D4AF37;width:46px;height:46px;border-radius:50%;font-size:1.2rem;cursor:pointer}#svlb .x{top:20px;right:20px}#svlb .p{left:18px;top:50%}#svlb .n{right:18px;top:50%}#svlb .c{position:absolute;bottom:24px;color:#D4AF37;font:600 .8rem Inter,sans-serif;letter-spacing:3px}';
+      document.head.appendChild(st); o = document.createElement('div'); o.id = 'svlb';
+      o.innerHTML = '<button class="x">✕</button><button class="p">‹</button><img alt=""><button class="n">›</button><div class="c"></div>'; document.body.appendChild(o);
+      var go = function (d) { o._i = (o._i + d + o._im.length) % o._im.length; $('img', o).src = o._im[o._i]; $('.c', o).textContent = (o._i + 1) + ' / ' + o._im.length; };
+      $('.x', o).onclick = function () { o.classList.remove('on'); }; $('.p', o).onclick = function () { go(-1); }; $('.n', o).onclick = function () { go(1); };
+      o.addEventListener('click', function (e) { if (e.target === o) o.classList.remove('on'); });
+      document.addEventListener('keydown', function (e) { if (!o.classList.contains('on')) return; if (e.key === 'Escape') o.classList.remove('on'); if (e.key === 'ArrowRight') go(-1); if (e.key === 'ArrowLeft') go(1); });
+    }
+    o._im = im; o._i = i; $('img', o).src = im[i]; $('.c', o).textContent = (i + 1) + ' / ' + im.length;
+    $('.p', o).style.display = $('.n', o).style.display = im.length > 1 ? '' : 'none'; o.classList.add('on');
+  }
+
+  /* ---- Live PROJECTS (same card design, filters, multi-image gallery) ---- */
   var pg = $('#portfolio-grid');
   if (pg && live) get('projects').then(function (items) {
-    var first = pg.firstElementChild, lb = $('#lightbox'), li = $('#lb-img');
+    var first = pg.firstElementChild;
     items.forEach(function (p) {
+      var im = p.images && p.images.length ? p.images : [p.image_url];
       var c = document.createElement('div'); c.className = 'project-card in-view'; c.setAttribute('data-dyn', '1'); c.dataset.category = p.category;
-      c.innerHTML = '<img src="' + esc(p.image_url) + '" alt="' + esc(p.title) + '" class="project-img"><div class="category-badge">' + esc(p.category) + '</div><div class="project-info"><span class="proj-category">' + esc(p.category) + '</span><div class="proj-title">' + esc(p.title) + '</div></div><div class="view-btn"><i class="fa-solid fa-expand"></i></div>';
-      c.addEventListener('click', function () {
-        li.src = p.image_url; li.style.opacity = '1'; li.style.transform = 'none'; lb.classList.add('open'); document.body.style.overflow = 'hidden';
-        ['lb-prev', 'lb-next', 'lb-counter'].forEach(function (i) { var x = document.getElementById(i); if (x) x.style.display = 'none'; });
-        new MutationObserver(function (m, o) { if (!lb.classList.contains('open')) { ['lb-prev', 'lb-next', 'lb-counter'].forEach(function (i) { var x = document.getElementById(i); if (x) x.style.display = ''; }); o.disconnect(); } }).observe(lb, { attributes: true });
-      });
+      c.innerHTML = '<img src="' + esc(im[0]) + '" alt="' + esc(p.title) + '" class="project-img"><div class="category-badge">' + esc(p.category) + '</div>' + (im.length > 1 ? '<div style="position:absolute;top:14px;left:14px;z-index:3;background:rgba(0,0,0,.7);border:1px solid rgba(212,175,55,.5);color:#D4AF37;border-radius:20px;padding:3px 10px;font:600 .7rem Inter,sans-serif"><i class="fa-regular fa-images"></i> ' + im.length + '</div>' : '') + '<div class="project-info"><span class="proj-category">' + esc(p.category) + '</span><div class="proj-title">' + esc(p.title) + '</div></div><div class="view-btn"><i class="fa-solid fa-expand"></i></div>';
+      c.addEventListener('click', function () { openGal(im, 0); });
       pg.insertBefore(c, first);
     });
     document.querySelectorAll('.filter-btn[data-filter]').forEach(function (b) {
       b.addEventListener('click', function () {
         var f = b.dataset.filter; pg.querySelectorAll('[data-dyn]').forEach(function (c) { var m = f === 'all' || c.dataset.category === f; c.classList.toggle('is-hidden', !m); c.classList.toggle('in-view', m); });
       });
+    });
+  });
+
+  /* ---- Live TEAM ---- */
+  var ex = $('.executives-row'), dep = $('.department-row');
+  if ((ex || dep) && live) get('team', 'sort.asc,created_at.asc').then(function (items) {
+    items.forEach(function (m) {
+      var id = 'dyn' + m.id.replace(/-/g, ''); try { teamDB[id] = { img: m.photo_url, role: m.role || '', name: m.name, desc: m.bio || '' }; } catch (e) {}
+      var isE = m.tier === 'executive';
+      var card = '<div class="team-card ' + (isE ? 'is-executive' : 'is-member') + '" onclick="openBioModal(\'' + id + '\')"><div class="card-photo"><img src="' + esc(m.photo_url) + '" alt="' + esc(m.name) + '" loading="lazy"><span class="card-role-badge">' + esc(m.role) + '</span></div><div class="card-body"><div class="member-name">' + esc(m.name) + '</div><div class="card-action">' + (isE ? 'View Profile' : 'Profile') + '<span class="card-action-arrow"><i class="fa-solid fa-arrow-right"></i></span></div></div></div>';
+      if (isE && ex) ex.insertAdjacentHTML('beforeend', card); else if (dep) dep.insertAdjacentHTML('beforeend', '<div class="team-card-wrap">' + card + '</div>');
+    });
+  });
+
+  /* ---- Live PARTNERS ---- */
+  var ptg = $('.partners-grid');
+  if (ptg && live) get('partners', 'sort.asc,created_at.asc').then(function (items) {
+    items.forEach(function (p) {
+      var n = ptg.querySelectorAll('.partner-card').length + 1;
+      ptg.insertAdjacentHTML('beforeend', '<div class="partner-card"><span class="partner-number">' + (n < 10 ? '0' : '') + n + '</span><div class="partner-logo-frame"><img src="' + esc(p.logo_url) + '" alt="' + esc(p.name) + '"></div><h3>' + esc(p.name) + '</h3></div>');
     });
   });
 
