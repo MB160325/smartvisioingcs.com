@@ -34,14 +34,21 @@
     });
   }
 
+  /* ---- helpers: when the dashboard holds imported content, it replaces the static markup ---- */
+  var L = function (a) { return a.some(function (x) { return x.legacy; }); };
+  var drop = function (sel) { document.querySelectorAll(sel).forEach(function (e) { e.remove(); }); };
+  var LZ = ' loading="lazy" decoding="async"';
+
   /* ---- Live NEWS (newest first, same card design + modal) ---- */
   var ng = $('.news-grid');
   if (ng && live) get('news').then(function (items) {
+    if (!items.length) return;
+    if (L(items)) drop('.news-grid .news-card:not([data-dyn])');
     var first = ng.firstElementChild;
     items.forEach(function (n) {
       var d = new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase();
       var a = document.createElement('article'); a.className = 'news-card'; a.setAttribute('data-dyn', '1'); a.dataset.imgs = JSON.stringify(n.images && n.images.length ? n.images : [n.image_url]);
-      a.innerHTML = '<div class="news-img-wrapper"><img src="' + esc(n.image_url) + '" alt="' + esc(n.title) + '"><div class="news-date">' + d + '</div></div><div class="news-content"><div class="news-category"><i class="fa-solid fa-newspaper"></i> ' + esc(n.category || 'News') + '</div><h3 class="news-title">' + esc(n.title) + '</h3><p class="news-desc">' + esc((n.body || '').slice(0, 180)) + '</p><div class="news-full-text">' + (n.body || '').split(/\n+/).map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('') + '</div><a href="#" class="read-more-btn">Read Article <i class="fa-solid fa-arrow-right-long"></i></a></div>';
+      a.innerHTML = '<div class="news-img-wrapper"><img src="' + esc(n.image_url) + '" alt="' + esc(n.title) + '"' + LZ + '><div class="news-date">' + d + '</div></div><div class="news-content"><div class="news-category"><i class="fa-solid fa-newspaper"></i> ' + esc(n.category || 'News') + '</div><h3 class="news-title">' + esc(n.title) + '</h3><p class="news-desc">' + esc((n.body || '').slice(0, 180)) + '</p><div class="news-full-text">' + (n.body || '').split(/\n+/).map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('') + '</div><a href="#" class="read-more-btn">Read Article <i class="fa-solid fa-arrow-right-long"></i></a></div>';
       ng.insertBefore(a, first);
     });
     ng.addEventListener('click', function (e) {
@@ -53,7 +60,7 @@
     });
   });
 
-  /* ---- Gallery lightbox (multi-image projects) ---- */
+  /* ---- Gallery lightbox ---- */
   function openGal(im, i) {
     var o = $('#svlb');
     if (!o) {
@@ -70,15 +77,21 @@
     $('.p', o).style.display = $('.n', o).style.display = im.length > 1 ? '' : 'none'; o.classList.add('on');
   }
 
-  /* ---- Live PROJECTS (same card design, filters, multi-image gallery) ---- */
+  /* ---- Live PROJECTS ---- */
   var pg = $('#portfolio-grid');
   if (pg && live) get('projects').then(function (items) {
+    if (!items.length) return;
+    if (L(items)) drop('#portfolio-grid .project-card:not([data-dyn])');
     var first = pg.firstElementChild;
     items.forEach(function (p) {
-      var im = p.images && p.images.length ? p.images : [p.image_url];
-      var c = document.createElement('div'); c.className = 'project-card in-view'; c.setAttribute('data-dyn', '1'); c.dataset.category = p.category;
-      c.innerHTML = '<img src="' + esc(im[0]) + '" alt="' + esc(p.title) + '" class="project-img"><div class="category-badge">' + esc(p.category) + '</div>' + (im.length > 1 ? '<div style="position:absolute;top:14px;left:14px;z-index:3;background:rgba(0,0,0,.7);border:1px solid rgba(212,175,55,.5);color:#D4AF37;border-radius:20px;padding:3px 10px;font:600 .7rem Inter,sans-serif"><i class="fa-regular fa-images"></i> ' + im.length + '</div>' : '') + '<div class="project-info"><span class="proj-category">' + esc(p.category) + '</span><div class="proj-title">' + esc(p.title) + '</div></div><div class="view-btn"><i class="fa-solid fa-expand"></i></div>';
-      c.addEventListener('click', function () { openGal(im, 0); });
+      var im = (p.images && p.images.length ? p.images : [p.image_url]).filter(Boolean);
+      var c = document.createElement('div'); c.className = 'project-card in-view'; c.setAttribute('data-dyn', '1'); c.dataset.category = p.category; c._im = im;
+      c.innerHTML = '<img src="' + esc(im[0]) + '" alt="' + esc(p.title) + '" class="project-img"' + LZ + '><div class="category-badge">' + esc(p.category) + '</div>' + (im.length > 1 ? '<div style="position:absolute;top:14px;left:14px;z-index:3;background:rgba(0,0,0,.7);border:1px solid rgba(212,175,55,.5);color:#D4AF37;border-radius:20px;padding:3px 10px;font:600 .7rem Inter,sans-serif"><i class="fa-regular fa-images"></i> ' + im.length + '</div>' : '') + '<div class="project-info"><span class="proj-category">' + esc(p.category) + '</span></div><div class="view-btn"><i class="fa-solid fa-expand"></i></div>';
+      c.addEventListener('click', function () {
+        var all = [], at = 0;
+        pg.querySelectorAll('.project-card[data-dyn]:not(.is-hidden)').forEach(function (k) { if (k === c) at = all.length; (k._im || []).forEach(function (u) { all.push(u); }); });
+        openGal(all, at);
+      });
       pg.insertBefore(c, first);
     });
     document.querySelectorAll('.filter-btn[data-filter]').forEach(function (b) {
@@ -91,21 +104,27 @@
   /* ---- Live TEAM ---- */
   var ex = $('.executives-row'), dep = $('.department-row');
   if ((ex || dep) && live) get('team', 'sort.asc,created_at.asc').then(function (items) {
+    if (!items.length) return;
+    if (L(items)) { drop('.executives-row .team-card'); drop('.department-row .team-card-wrap'); }
     items.forEach(function (m) {
       var id = 'dyn' + m.id.replace(/-/g, ''); try { teamDB[id] = { img: m.photo_url, role: m.role || '', name: m.name, desc: m.bio || '' }; } catch (e) {}
       var isE = m.tier === 'executive';
-      var card = '<div class="team-card ' + (isE ? 'is-executive' : 'is-member') + '" onclick="openBioModal(\'' + id + '\')"><div class="card-photo"><img src="' + esc(m.photo_url) + '" alt="' + esc(m.name) + '" loading="lazy"><span class="card-role-badge">' + esc(m.role) + '</span></div><div class="card-body"><div class="member-name">' + esc(m.name) + '</div><div class="card-action">' + (isE ? 'View Profile' : 'Profile') + '<span class="card-action-arrow"><i class="fa-solid fa-arrow-right"></i></span></div></div></div>';
+      var card = '<div class="team-card ' + (isE ? 'is-executive' : 'is-member') + '" data-dyn="1" onclick="openBioModal(\'' + id + '\')"><div class="card-photo"><img src="' + esc(m.photo_url) + '" alt="' + esc(m.name) + '"' + LZ + '><span class="card-role-badge">' + esc(m.role) + '</span></div><div class="card-body"><div class="member-name">' + esc(m.name) + '</div><div class="card-action">' + (isE ? 'View Profile' : 'Profile') + '<span class="card-action-arrow"><i class="fa-solid fa-arrow-right"></i></span></div></div></div>';
       if (isE && ex) ex.insertAdjacentHTML('beforeend', card); else if (dep) dep.insertAdjacentHTML('beforeend', '<div class="team-card-wrap">' + card + '</div>');
     });
   });
 
-  /* ---- Live PARTNERS ---- */
+  /* ---- Live PARTNERS (grid + scrolling strip) ---- */
   var ptg = $('.partners-grid');
   if (ptg && live) get('partners', 'sort.asc,created_at.asc').then(function (items) {
+    if (!items.length) return;
+    if (L(items)) drop('.partners-grid .partner-card');
     items.forEach(function (p) {
       var n = ptg.querySelectorAll('.partner-card').length + 1;
-      ptg.insertAdjacentHTML('beforeend', '<div class="partner-card"><span class="partner-number">' + (n < 10 ? '0' : '') + n + '</span><div class="partner-logo-frame"><img src="' + esc(p.logo_url) + '" alt="' + esc(p.name) + '"></div><h3>' + esc(p.name) + '</h3></div>');
+      ptg.insertAdjacentHTML('beforeend', '<div class="partner-card" data-dyn="1"><span class="partner-number">' + (n < 10 ? '0' : '') + n + '</span><div class="partner-logo-frame"><img src="' + esc(p.logo_url) + '" alt="' + esc(p.name) + '"' + LZ + '></div><h3>' + esc(p.name) + '</h3></div>');
     });
+    var tr = $('#marquee-track');
+    if (tr && L(items)) { var one = items.map(function (p) { return '<div class="brand-item"><div class="logo-pill"><img src="' + esc(p.logo_url) + '" alt="' + esc(p.name) + '"' + LZ + '></div></div>'; }).join(''); tr.innerHTML = one + one; }
   });
 
   /* ---- Chatbot (company knowledge base, Arabic + English) ---- */
