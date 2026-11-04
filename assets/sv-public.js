@@ -121,7 +121,7 @@
     if (L(items)) drop('.partners-grid .partner-card');
     items.forEach(function (p) {
       var n = ptg.querySelectorAll('.partner-card').length + 1;
-      ptg.insertAdjacentHTML('beforeend', '<div class="partner-card" data-dyn="1"><span class="partner-number">' + (n < 10 ? '0' : '') + n + '</span><div class="partner-logo-frame"><img src="' + esc(p.logo_url) + '" alt="' + esc(p.name) + '"' + LZ + '></div><h3>' + esc(p.name) + '</h3></div>');
+      ptg.insertAdjacentHTML('beforeend', '<div class="partner-card in-view" data-dyn="1"><span class="partner-number">' + (n < 10 ? '0' : '') + n + '</span><div class="partner-logo-frame"><img src="' + esc(p.logo_url) + '" alt="' + esc(p.name) + '"' + LZ + '></div><h3>' + esc(p.name) + '</h3></div>');
     });
     var tr = $('#marquee-track');
     if (tr && L(items)) { var one = items.map(function (p) { return '<div class="brand-item"><div class="logo-pill"><img src="' + esc(p.logo_url) + '" alt="' + esc(p.name) + '"' + LZ + '></div></div>'; }).join(''); tr.innerHTML = one + one; }
