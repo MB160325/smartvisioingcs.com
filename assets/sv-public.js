@@ -84,11 +84,12 @@
   if (pg && live) get('projects').then(function (items) {
     if (!items.length) return;
     if (L(items)) drop('#portfolio-grid .project-card:not([data-dyn])');
+    if (!$('#svpm')) { var ps = document.createElement('style'); ps.id = 'svpm'; ps.textContent = '.pmeta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}.pmeta .proj-category{margin:0!important}.pc-n{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(212,175,55,.45);background:rgba(0,0,0,.45);color:#D4AF37;border-radius:50px;padding:3px 12px;font:600 .66rem Inter,sans-serif;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}'; document.head.appendChild(ps); }
     var first = pg.firstElementChild;
     items.forEach(function (p) {
       var im = (p.images && p.images.length ? p.images : [p.image_url]).filter(Boolean);
       var c = document.createElement('div'); c.className = 'project-card in-view'; c.setAttribute('data-dyn', '1'); c.dataset.category = p.category; c._im = im;
-      c.innerHTML = '<img src="' + esc(im[0]) + '" alt="' + esc(p.title) + '" class="project-img"' + LZ + '><div class="category-badge">' + esc(p.category) + '</div>' + (im.length > 1 ? '<div style="position:absolute;top:14px;left:14px;z-index:3;background:rgba(0,0,0,.7);border:1px solid rgba(212,175,55,.5);color:#D4AF37;border-radius:20px;padding:3px 10px;font:600 .7rem Inter,sans-serif"><i class="fa-regular fa-images"></i> ' + im.length + '</div>' : '') + '<div class="project-info"><span class="proj-category">' + esc(p.category) + '</span>' + (/^(architecture|structure|mep|site)\b.*\b(drawing|photo|visual)\b/i.test(p.title || '') ? '' : '<div class="proj-title">' + esc(p.title) + '</div>') + '</div><div class="view-btn"><i class="fa-solid fa-expand"></i></div>';
+      c.innerHTML = '<img src="' + esc(im[0]) + '" alt="' + esc(p.title) + '" class="project-img"' + LZ + '><div class="category-badge">' + esc(p.category) + '</div>' + '<div class="project-info">' + (im.length > 1 ? '<div class="pmeta"><span class="proj-category">' + esc(p.category) + '</span><span class="pc-n"><i class="fa-regular fa-images"></i> ' + im.length + ' PHOTOS</span></div>' : '<span class="proj-category">' + esc(p.category) + '</span>') + (/^(architecture|structure|mep|site)\b.*\b(drawing|photo|visual)\b/i.test(p.title || '') ? '' : '<div class="proj-title">' + esc(p.title) + '</div>') + '</div><div class="view-btn"><i class="fa-solid fa-expand"></i></div>';
       c.addEventListener('click', function () { openGal(im, 0); });
       pg.insertBefore(c, first);
     });
