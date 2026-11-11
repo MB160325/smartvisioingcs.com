@@ -7,8 +7,9 @@
   var get = function (t, o) { return fetch(C.url + '/rest/v1/' + t + '?select=*&published=eq.true&order=' + (o || 'created_at.desc'), { headers: H }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }); };
 
   /* ---- Staff login entry (icon only, keeps the header untouched) ---- */
-  var ul = $('.nav-links');
-  if (ul) ul.insertAdjacentHTML('beforeend', '<li><a href="staff-login.html" title="Staff Login" aria-label="Staff Login"><i class="fa-solid fa-user-lock"></i></a></li>');
+  var ul = $('.nav-links'), isAr = document.documentElement.lang === 'ar';
+  if (ul && !isAr) ul.insertAdjacentHTML('beforeend', '<li><a href="ar.html" hreflang="ar" lang="ar" title="النسخة العربية">عربي</a></li>');
+  if (ul && !isAr) ul.insertAdjacentHTML('beforeend', '<li><a href="staff-login.html" title="Staff Login" aria-label="Staff Login"><i class="fa-solid fa-user-lock"></i></a></li>');
   var grid = $('.overlay-nav-grid');
   if (grid) grid.insertAdjacentHTML('beforeend', '<a href="staff-login.html" class="overlay-nav-item" style="grid-column:span 2"><i class="fa-solid fa-user-lock"></i><span>Staff Login</span></a>');
 
@@ -129,7 +130,7 @@
   var MENU = ['details', 'services', 'projects', 'team', 'partners', 'contact', 'careers', 'quote'];
   var KB = [], BY = {}, FB = { en: [], ar: [], eg: [] }, STAT = [], DY = { team: [], partners: [], news: [] }, ready = null, hist = [], aiFail = 0, busy = false, opened = false;
   var LG = ['en', 'ar', 'eg'], LN = { en: 'EN', ar: 'فصحى', eg: 'مصري' };
-  var lang = /^ar/i.test(navigator.language || '') ? 'ar' : 'en';
+  var lang = (document.documentElement.lang === 'ar' || /^ar/i.test(navigator.language || '')) ? 'ar' : 'en';
   var EGW = {}; 'ايه ازاي عايز عاوز عايزه عاوزه دي ده دا كده كدا فين مش بتاع بتاعك دلوقتي دلوقت ليه كام عشان علشان اهو حاجه بقي بقا لسه برضو برضه اوي احنا انتوا انتو بتعملوا بتشتغلوا بتقدموا ازيك اخبارك معلش طب طيب خلاص يلا ايوه مين'.split(' ').forEach(function (w) { EGW[w] = 1; });
   var MINI = { greet: { a: { en: ['Hello! How can I help you with SMART VISION?'], ar: ['أهلاً بك! كيف يمكنني مساعدتك؟'], eg: ['أهلاً بيك! أقدر أساعدك إزاي؟'] }, f: [] } };
   var ROBOT = '<svg class="rbt" viewBox="0 -8 120 108" aria-hidden="true"><path d="M18 100C18 82 36 76 60 76C84 76 102 82 102 100Z" fill="#262626" stroke="#D4AF37" stroke-width="2"/><rect x="46" y="86" width="28" height="10" rx="3" fill="#161616" stroke="#8B6B15" stroke-width="1.2"/><circle cx="53" cy="91" r="2.2" fill="#FFD54A"/><circle cx="60" cy="91" r="2.2" fill="#8B6B15"/><circle cx="67" cy="91" r="2.2" fill="#8B6B15"/><rect x="52" y="68" width="16" height="10" fill="#3a3a3a"/><g class="hd"><circle cx="27" cy="55" r="4.5" fill="#D4AF37"/><circle cx="93" cy="55" r="4.5" fill="#D4AF37"/><rect x="30" y="34" width="60" height="40" rx="14" fill="#1d1d1d" stroke="#D4AF37" stroke-width="2.5"/><rect x="37" y="43" width="46" height="26" rx="9" fill="#000"/><circle class="ey" cx="50" cy="53" r="5.2"/><circle class="ey" cx="70" cy="53" r="5.2"/><rect class="mb" x="49" y="62" width="4" height="4" rx="1"/><rect class="mb" style="animation-delay:.15s" x="58" y="62" width="4" height="4" rx="1"/><rect class="mb" style="animation-delay:.3s" x="67" y="62" width="4" height="4" rx="1"/><path d="M60 8V0" stroke="#D4AF37" stroke-width="2.2" stroke-linecap="round"/><circle class="an" cx="60" cy="-1" r="3"/><path d="M31 37C31 17 45 8 60 8C75 8 89 17 89 37Z" fill="#D4AF37"/><rect x="54" y="8" width="12" height="29" rx="4" fill="#FFD54A"/><rect x="22" y="33" width="76" height="9" rx="4.5" fill="#B8932A"/><rect x="55" y="17" width="10" height="7" rx="2" fill="#fff" opacity=".85"/></g><g class="gr"><circle cx="104" cy="26" r="7.5" fill="none" stroke="#D4AF37" stroke-width="5" stroke-dasharray="3.1 3.1"/><circle cx="104" cy="26" r="5.4" fill="#D4AF37"/><circle cx="104" cy="26" r="2.2" fill="#0a0a0a"/></g></svg>';
