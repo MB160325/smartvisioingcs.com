@@ -34,3 +34,5 @@ footer .fl{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-bo
 @media(max-width:900px){.mb{display:inline-flex}header{position:sticky}nav{display:none;position:absolute;top:100%;right:0;left:0;background:#050505;border-bottom:1px solid var(--bd);padding:8px 6% 18px}nav.open{display:block}nav ul{flex-direction:column;gap:0}nav a{display:block;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.07)}header .btn.hb{display:none}.ct,.two,.row2{grid-template-columns:1fr}section{padding:56px 6%}}
 
 .fm{margin-top:10px;font-size:.9rem;min-height:1.4em}
+
+.lgs{display:none;align-items:center;gap:7px;height:42px;padding:0 16px;border-radius:50px;border:1px solid var(--g);background:rgba(212,175,55,.08);color:var(--g);font:800 .8rem Inter,sans-serif;letter-spacing:1px}.lgs:hover{background:var(--g);color:#000}@media(max-width:900px){.lgs{display:inline-flex}}

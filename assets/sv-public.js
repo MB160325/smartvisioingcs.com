@@ -10,7 +10,15 @@
   var ul = $('.nav-links'), isAr = document.documentElement.lang === 'ar';
   if (ul && !isAr) ul.insertAdjacentHTML('beforeend', '<li><a href="' + ((document.querySelector('link[hreflang=ar]') || {}).getAttribute ? document.querySelector('link[hreflang=ar]').getAttribute('href').replace('https://smartvisiongcs.com/', '') : 'ar.html') + '" hreflang="ar" lang="ar" title="النسخة العربية">عربي</a></li>');
   if (ul && !isAr) ul.insertAdjacentHTML('beforeend', '<li><a href="staff-login.html" title="Staff Login" aria-label="Staff Login"><i class="fa-solid fa-user-lock"></i></a></li>');
+  var arHref = (document.querySelector('link[hreflang=ar]') || {}).getAttribute ? document.querySelector('link[hreflang=ar]').getAttribute('href').replace('https://smartvisiongcs.com/', '') : 'ar.html';
+  if (!isAr) {
+    var lst = document.createElement('style');
+    lst.textContent = '.svlg{display:none}@media(max-width:900px){.svlg{display:inline-flex;position:fixed;left:14px;bottom:92px;z-index:9000;align-items:center;gap:8px;height:46px;padding:0 18px;border-radius:50px;background:#000;border:1px solid var(--gold-border,#C9A227);color:var(--gold-primary,#D4AF37);font:800 .9rem Cairo,Inter,sans-serif;text-decoration:none;box-shadow:0 8px 24px rgba(0,0,0,.65);animation:svlgi .6s ease-out}.svlg:active{background:var(--gold-primary,#D4AF37);color:#000}}@keyframes svlgi{from{opacity:0;transform:translateY(10px)}}';
+    document.head.appendChild(lst);
+    document.body.insertAdjacentHTML('beforeend', '<a class="svlg" href="' + arHref + '" hreflang="ar" lang="ar" aria-label="النسخة العربية"><i class="fa-solid fa-globe"></i> عربي</a>');
+  }
   var grid = $('.overlay-nav-grid');
+  if (grid && !isAr) grid.insertAdjacentHTML('beforeend', '<a href="' + arHref + '" class="overlay-nav-item" style="grid-column:span 2" hreflang="ar" lang="ar"><i class="fa-solid fa-language"></i><span>عربي · العربية</span></a>');
   if (grid) grid.insertAdjacentHTML('beforeend', '<a href="staff-login.html" class="overlay-nav-item" style="grid-column:span 2"><i class="fa-solid fa-user-lock"></i><span>Staff Login</span></a>');
 
   /* ---- Requests (contact form → Supabase → email to all admins) ---- */
