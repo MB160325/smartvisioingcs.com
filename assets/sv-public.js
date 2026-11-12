@@ -8,7 +8,7 @@
 
   /* ---- Staff login entry (icon only, keeps the header untouched) ---- */
   var ul = $('.nav-links'), isAr = document.documentElement.lang === 'ar';
-  if (ul && !isAr) ul.insertAdjacentHTML('beforeend', '<li><a href="ar.html" hreflang="ar" lang="ar" title="النسخة العربية">عربي</a></li>');
+  if (ul && !isAr) ul.insertAdjacentHTML('beforeend', '<li><a href="' + ((document.querySelector('link[hreflang=ar]') || {}).getAttribute ? document.querySelector('link[hreflang=ar]').getAttribute('href').replace('https://smartvisiongcs.com/', '') : 'ar.html') + '" hreflang="ar" lang="ar" title="النسخة العربية">عربي</a></li>');
   if (ul && !isAr) ul.insertAdjacentHTML('beforeend', '<li><a href="staff-login.html" title="Staff Login" aria-label="Staff Login"><i class="fa-solid fa-user-lock"></i></a></li>');
   var grid = $('.overlay-nav-grid');
   if (grid) grid.insertAdjacentHTML('beforeend', '<a href="staff-login.html" class="overlay-nav-item" style="grid-column:span 2"><i class="fa-solid fa-user-lock"></i><span>Staff Login</span></a>');
@@ -199,7 +199,11 @@
     var h = { en: 'Here\'s a quick profile:', ar: 'إليك نبذة سريعة:', eg: 'دي نبذة سريعة:' }[lang];
     return h + '<br><b>' + esc(m.name) + '</b>' + (m.role ? ' — ' + esc(m.role) : '') + (bio ? '<br>' + esc(bio) : '') + '<br><br><a href="team.html">' + ({ en: 'Team page', ar: 'صفحة الفريق', eg: 'صفحة الفريق' }[lang]) + '</a>';
   }
-  function fix(h) { return String(h).replace(/\{\{WA\}\}/g, wa); }
+  function fix(h) {
+    h = String(h).replace(/\{\{WA\}\}/g, wa);
+    if (document.documentElement.lang === 'ar') h = h.replace(/href=(["'])contact\.html#request/g, 'href=$1ar-contact.html#form').replace(/href=(["'])(about|services|projects|partnerships|team|career|news|contact)\.html/g, 'href=$1ar-$2.html').replace(/href=(["'])index\.html/g, 'href=$1ar.html');
+    return h;
+  }
   function load() {
     if (!ready) ready = fetch('assets/sv-knowledge.json').then(function (r) { return r.json(); }).then(function (j) { KB = j.intents || []; FB = j.fallback || FB; STAT = j.team || []; }).catch(function () { KB = []; }).then(function () { KB.forEach(function (x) { BY[x.id] = x; x.nk = x.k.map(nz).filter(Boolean); }); if (!BY.greet) BY.greet = MINI.greet; }).then(dyn);
     return ready;
