@@ -35,19 +35,42 @@ input{padding:14px 16px;border-radius:10px;background:rgba(255,255,255,.045)}inp
 <div class="sec"><i class="fa-solid fa-shield-halved"></i> SECURED ACCESS · اتصال مشفّر</div><a class="back" href="index.html"><i class="fa-solid fa-arrow-left-long"></i> smartvisiongcs.com</a></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script><script src="assets/sv-config.js"></script>
 <script>
-var C=window.SV,sb=supabase.createClient(C.url,C.key),$=function(i){return document.getElementById(i)},mode='login';
-function msg(t,ok){$('m').style.color=ok?'#7bd88f':'#ff8a80';$('m').textContent=t}
-async function route(){var u=(await sb.auth.getUser()).data.user;if(!u)return;
-  var p=(await sb.from('profiles').select('role').eq('id',u.id).maybeSingle()).data;
-  if(p&&(p.role==='admin'||p.role==='staff'))location.href='admin.html';
-  else{await sb.auth.signOut();msg('Your account is awaiting approval. · حسابك بانتظار موافقة الإدارة.')}}
-sb.auth.onAuthStateChange(function(e){if(e==='PASSWORD_RECOVERY'){mode='reset';$('fe').style.display='none';$('fg').style.display='none';$('ttl').textContent='New password · كلمة مرور جديدة';$('go').textContent='Save · حفظ';$('pw').autocomplete='new-password'}});
-$('f').onsubmit=async function(e){e.preventDefault();$('go').disabled=true;msg('');
-  if(mode==='reset'){var r=await sb.auth.updateUser({password:$('pw').value});$('go').disabled=false;if(r.error)return msg(r.error.message);msg('Updated ✓',1);return route()}
-  var r=await sb.auth.signInWithPassword({email:$('em').value.trim(),password:$('pw').value});$('go').disabled=false;
-  if(r.error)return msg('Invalid email or password. · بيانات الدخول غير صحيحة.');route()};
-$('fg').onclick=async function(){var v=$('em').value.trim();if(!v)return msg('Enter your email first. · أدخل بريدك أولاً.');
-  var r=await sb.auth.resetPasswordForEmail(v,{redirectTo:location.origin+location.pathname});msg(r.error?r.error.message:'Reset link sent. · تم إرسال رابط الاستعادة.',!r.error)};
+var C=window.SV||{},$=function(i){return document.getElementById(i)},mode='login',sb=null;
+function msg(t,ok){$('m').style.color=ok?'#7bd88f':'#ff8a80';$('m').innerHTML=t}
+function why(e){var m=(e&&e.message)||String(e||'');
+ if(/invalid login credentials/i.test(m)){var ref=String(C.url||'').replace(/^https?:\/\//,'').split('.')[0];return 'Wrong email or password. · البريد أو كلمة المرور غير صحيحة.<br><small style="color:#9a9a9a;line-height:1.7;display:block;margin-top:8px">If you were invited by email you may not have a password yet — use “Forgot password?” or ask the admin to set one. Also make sure this user exists in the Supabase project <b style="color:#D4AF37">'+ref+'</b>.<br>إن كانت دعوتك بالإيميل فربما لم تُنشئ كلمة مرور بعد: استخدم «نسيت كلمة المرور؟» أو اطلب من المدير تعيينها، وتأكد أن المستخدم موجود في مشروع Supabase <b style="color:#D4AF37">'+ref+'</b>.</small>'}
+ if(/email not confirmed/i.test(m))return 'This email is not confirmed yet. Confirm the user in Supabase (Authentication ▸ Users) or open the invitation email. · لم يتم تأكيد هذا البريد بعد.';
+ if(/invalid api key|apikey/i.test(m))return 'Invalid API key in assets/sv-config.js. · مفتاح Supabase غير صحيح في ملف sv-config.js.';
+ if(/fetch|network|load failed/i.test(m))return 'Cannot reach Supabase. Check the URL in assets/sv-config.js and your connection. · تعذر الاتصال بـ Supabase، تحقق من الرابط في sv-config.js.';
+ if(/rate limit|too many/i.test(m))return 'Too many attempts, try again in a few minutes. · محاولات كثيرة، حاول بعد دقائق.';
+ return m||'Unexpected error. · حدث خطأ غير متوقع.'}
+function boot(){
+ if(typeof supabase==='undefined'){msg('The login library could not load (blocked network?). Refresh, or check that cdn.jsdelivr.net is reachable. · تعذر تحميل مكتبة الدخول.');return false}
+ if(!C.url||!C.key||/YOUR-/.test(C.url+C.key)){msg('Supabase is not configured yet — put the project URL and anon key in assets/sv-config.js. · لم تُضبط إعدادات Supabase بعد: ضع الرابط والمفتاح في assets/sv-config.js.');return false}
+ try{sb=supabase.createClient(C.url,C.key)}catch(e){msg(why(e));return false}return true}
+async function route(){
+ var u=(await sb.auth.getUser()).data.user;if(!u)return;
+ var q=await sb.from('profiles').select('role').eq('id',u.id).maybeSingle(),p=q.data;
+ if(!p||p.role==='pending'){var c=await sb.rpc('claim_profile');if(!c.error&&c.data)p={role:c.data}}
+ if(p&&(p.role==='admin'||p.role==='staff')){location.href='admin.html';return}
+ await sb.auth.signOut();
+ if(q.error&&!/PGRST116/.test(q.error.code||''))msg('Could not read your permissions ('+q.error.message+'). Run supabase/schema.sql and update-4-login-fix.sql in the SQL Editor. · تعذر قراءة الصلاحيات، شغّل ملفات SQL.');
+ else msg('Your account is awaiting approval, or this email is not in the admin list. · حسابك بانتظار موافقة الإدارة أو أن بريدك غير مضاف لقائمة الأدمن.')}
+var ok=boot();
+if(ok){
+ sb.auth.onAuthStateChange(function(e){if(e==='PASSWORD_RECOVERY'){mode='reset';$('fe').style.display='none';$('fg').style.display='none';$('ttl').textContent='New password · كلمة مرور جديدة';$('go').textContent='Save · حفظ';$('pw').autocomplete='new-password'}});
+ route().catch(function(e){msg(why(e))});
+}
+$('f').onsubmit=async function(e){e.preventDefault();msg('');
+ if(!ok&&!boot())return;
+ $('go').disabled=true;
+ try{
+  if(mode==='reset'){var r=await sb.auth.updateUser({password:$('pw').value});if(r.error)throw r.error;msg('Updated ✓',1);await route();return}
+  var r2=await sb.auth.signInWithPassword({email:$('em').value.trim().toLowerCase(),password:$('pw').value});if(r2.error)throw r2.error;
+  await route();
+ }catch(err){msg(why(err))}
+ $('go').disabled=false};
+$('fg').onclick=async function(){var v=$('em').value.trim();if(!v)return msg('Enter your email first. · أدخل بريدك أولاً.');if(!ok&&!boot())return;
+ try{var r=await sb.auth.resetPasswordForEmail(v,{redirectTo:location.origin+location.pathname});msg(r.error?why(r.error):'Reset link sent. · تم إرسال رابط الاستعادة.',!r.error)}catch(e){msg(why(e))}};
 $('eye').onclick=function(){var p=$('pw'),h=p.type==='password';p.type=h?'text':'password';this.firstChild.className=h?'fa-regular fa-eye-slash':'fa-regular fa-eye'};
-route();
 </script></body></html>
