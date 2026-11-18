@@ -16,6 +16,15 @@
   function closeMd() { if (md) { md.classList.remove('on'); document.body.style.overflow = ''; } }
   if (md) { md.addEventListener('click', function (e) { if (e.target === md || e.target.closest('.x')) closeMd(); }); document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeMd(); var l = $('#alb'); if (l) l.classList.remove('on'); } }); }
 
+  /* modal image slider: arrows + dots + swipe (news with several images) */
+  function slide(root, im) {
+    if (!root || im.length < 2) return; var img = $('.slm', root), i = 0, dots = $$('.sd i', root);
+    var go = function (n) { i = (n + im.length) % im.length; img.src = im[i]; dots.forEach(function (d, k) { d.classList.toggle('on', k === i); }); };
+    $('.sbn.p', root).onclick = function () { go(i - 1); }; $('.sbn.n', root).onclick = function () { go(i + 1); };
+    var x0 = null; img.ontouchstart = function (e) { x0 = e.touches[0].clientX; }; img.ontouchend = function (e) { if (x0 == null) return; var dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1)); x0 = null; }; go(0);
+  }
+  function sliderHtml(im) { return '<div class="sl"><img class="slm" src="' + esc(im[0]) + '" alt="">' + (im.length > 1 ? '<button type="button" class="sbn p" aria-label="السابق">›</button><button type="button" class="sbn n" aria-label="التالي">‹</button><div class="sd">' + im.map(function () { return '<i></i>'; }).join('') + '</div>' : '') + '</div>'; }
+
   /* project gallery (only the clicked project's own images) */
   function openGal(im, i) {
     var o = $('#alb'); if (!o) { o = document.createElement('div'); o.id = 'alb'; o.className = 'alb'; o.innerHTML = '<button class="x">✕</button><button class="p">›</button><img class="m" alt=""><button class="n">‹</button><div class="c"></div><div class="t"></div>'; document.body.appendChild(o);
@@ -55,8 +64,11 @@
   /* news: Arabic static articles + articles published from the dashboard */
   var nl = $('#nlist');
   if (nl) {
-    var ncard = function (n) { var d = new Date(n.created_at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' }); return '<article class="nc" data-t="' + esc(n.title) + '" data-c="' + esc(n.category || 'أخبار') + '" data-d="' + esc(d) + '" data-i="' + esc(n.image_url) + '" data-b="' + esc(n.body || '') + '"><img src="' + esc(n.image_url) + '" alt="' + esc(n.title) + '" loading="lazy" decoding="async"><div class="bd"><small>' + esc(n.category || 'أخبار') + '</small><h3>' + esc(n.title) + '</h3><p>' + esc((n.body || '').slice(0, 130)) + '…</p><span class="dt">' + d + '</span></div><span class="rm">اقرأ المقال ←</span></article>'; };
-    nl.addEventListener('click', function (e) { var c = e.target.closest('.nc'); if (!c) return; openMd('<img src="' + esc(c.dataset.i) + '" alt=""><div class="mc"><small>' + esc(c.dataset.c) + ' · ' + esc(c.dataset.d) + '</small><h3>' + esc(c.dataset.t) + '</h3><p>' + esc(c.dataset.b).replace(/\n+/g, '</p><p>') + '</p></div>'); });
+    var ncard = function (n) { var d = new Date(n.created_at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' }); return '<article class="nc" data-imgs="' + esc(JSON.stringify(n.images && n.images.length ? n.images : [n.image_url])) + '" data-t="' + esc(n.title) + '" data-c="' + esc(n.category || 'أخبار') + '" data-d="' + esc(d) + '" data-i="' + esc(n.image_url) + '" data-b="' + esc(n.body || '') + '"><img src="' + esc(n.image_url) + '" alt="' + esc(n.title) + '" loading="lazy" decoding="async"><div class="bd"><small>' + esc(n.category || 'أخبار') + '</small><h3>' + esc(n.title) + '</h3><p>' + esc((n.body || '').slice(0, 130)) + '…</p><span class="dt">' + d + '</span></div><span class="rm">اقرأ المقال ←</span></article>'; };
+    nl.addEventListener('click', function (e) {
+      var c = e.target.closest('.nc'); if (!c) return; var im = []; try { im = JSON.parse(c.dataset.imgs || '[]'); } catch (x) {} if (!im.length) im = [c.dataset.i];
+      openMd(sliderHtml(im) + '<div class="mc"><small>' + esc(c.dataset.c) + ' · ' + esc(c.dataset.d) + (im.length > 1 ? ' · ' + im.length + ' صور' : '') + '</small><h3>' + esc(c.dataset.t) + '</h3><p>' + esc(c.dataset.b).replace(/\n+/g, '</p><p>') + '</p></div>'); slide($('#mdc .sl'), im);
+    });
     get('news').then(function (rows) { var fresh = rows.filter(function (x) { return !x.legacy; }); if (fresh.length) nl.insertAdjacentHTML('afterbegin', fresh.map(ncard).join('')); });
   }
 
@@ -68,12 +80,13 @@
   $$('form.rqf').forEach(function (f) {
     f.addEventListener('submit', function (e) {
       e.preventDefault(); var m = $('.fm', f), b = $('button[type=submit]', f), d = {}; new FormData(f).forEach(function (v, k) { d[k] = String(v).trim(); }); b.disabled = true; m.style.color = '';
-      var career = f.dataset.career !== undefined, row;
+      var career = f.dataset.career !== undefined, row, cv = null;
+      if (career) { var fi = $('input[type=file]', f); cv = fi && fi.files[0]; if (!cv || !/\.(pdf|docx?)$/i.test(cv.name) || cv.size > 5 * 1024 * 1024) { m.style.color = '#ff8a80'; m.textContent = 'يرجى إرفاق سيرتك الذاتية بصيغة PDF أو Word وبحجم لا يتجاوز 5 ميغابايت.'; b.disabled = false; return; } }
       if (career) row = { kind: 'career', name: (d.first + ' ' + d.last).trim(), email: d.email, phone: d.phone, subject: 'طلب توظيف: ' + (d.position || ''), message: 'الوظيفة المطلوبة: ' + (d.position || '') + '\n\n' + (d.message || '') };
       else row = { kind: d.kind || 'contact', name: d.name, email: d.email, phone: d.phone, subject: d.subject || '', message: d.message };
-      var ok = function () { f.reset(); m.style.color = '#7bd88f'; m.textContent = career ? 'تم استلام طلبك بنجاح! يرجى إرسال سيرتك الذاتية (PDF) إلى info@smartvisiongcs.com وسيتواصل معك فريق الموارد البشرية.' : 'شكراً لك! تم استلام طلبك وسنتواصل معك قريباً.'; };
+      var ok = function () { f.reset(); m.style.color = '#7bd88f'; m.textContent = career ? 'تم استلام طلبك وسيرتك الذاتية بنجاح! سيتواصل معك فريق الموارد البشرية إذا توافق ملفك مع الوظيفة.' : 'شكراً لك! تم استلام طلبك وسنتواصل معك قريباً.'; };
       var bad = function () { m.style.color = '#ff8a80'; m.innerHTML = 'تعذر الإرسال الآن. يرجى مراسلتنا على <a href="mailto:info@smartvisiongcs.com?subject=' + encodeURIComponent(row.subject || 'طلب جديد') + '&body=' + encodeURIComponent(row.message + '\n\n' + row.name + ' - ' + row.phone) + '">info@smartvisiongcs.com</a>'; };
-      (C.sendRequest ? C.sendRequest(row) : Promise.reject()).then(ok).catch(bad).then(function () { b.disabled = false; });
+      (C.sendRequest ? C.sendRequest(row, cv) : Promise.reject()).then(ok).catch(bad).then(function () { b.disabled = false; });
     });
   });
 })();

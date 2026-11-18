@@ -24,11 +24,19 @@
   if (grid) grid.insertAdjacentHTML('beforeend', '<a href="staff-login.html" class="overlay-nav-item"><i class="fa-solid fa-user-lock"></i><span>Staff Login</span></a>');
 
   /* ---- Requests (contact form → Supabase → email to all admins) ---- */
-  C.sendRequest = function (row) {
+  C.sendRequest = function (row, file) {
     if (!live) return Promise.reject(new Error('not configured'));
-    var id = crypto.randomUUID();
-    return fetch(C.url + '/rest/v1/requests', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }, H), body: JSON.stringify(Object.assign({ id: id }, row)) })
-      .then(function (r) { if (!r.ok) throw new Error('save failed'); fetch(C.url + '/functions/v1/notify-admins', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, H), body: JSON.stringify({ id: id }) }).catch(function () {}); });
+    var id = crypto.randomUUID(), up = Promise.resolve(null);
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) return Promise.reject(new Error('file too large'));
+      var path = 'cv/' + id + '/' + (file.name || 'cv.pdf').replace(/[^\w.\-]+/g, '_').slice(-80);
+      up = fetch(C.url + '/storage/v1/object/cvs/' + path, { method: 'POST', headers: Object.assign({ 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' }, H), body: file })
+        .then(function (r) { if (!r.ok) throw new Error('upload failed'); return { p: path, n: file.name }; });
+    }
+    return up.then(function (a) {
+      var body = Object.assign({ id: id }, row); if (a) { body.attachment_path = a.p; body.attachment_name = a.n; }
+      return fetch(C.url + '/rest/v1/requests', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }, H), body: JSON.stringify(body) });
+    }).then(function (r) { if (!r.ok) throw new Error('save failed'); fetch(C.url + '/functions/v1/notify-admins', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, H), body: JSON.stringify({ id: id }) }).catch(function () {}); });
   };
   var cs = $('.contact-section');
   if (cs) {
@@ -50,6 +58,43 @@
   var drop = function (sel) { document.querySelectorAll(sel).forEach(function (e) { e.remove(); }); };
   var LZ = ' loading="lazy" decoding="async"';
 
+
+  /* ---- Careers: application + CV go to the dashboard (falls back to the old email draft when offline) ---- */
+  var cf = $('#smartCareerForm');
+  if (cf && live) {
+    var sbtn = $('.submit-btn', cf);
+    sbtn.insertAdjacentHTML('beforebegin', '<div class="form-group"><label class="form-label">CV / Resume (PDF or Word, max 5MB)</label><input type="file" id="cvFile" class="form-input" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required></div>');
+    var dsc = $('.form-disclaimer', cf); if (dsc) dsc.innerHTML = '<i class="fa-solid fa-lock"></i> Your application and CV are stored securely and reviewed only by our HR team.';
+    cf.insertAdjacentHTML('afterend', '<div id="svCareerOk" style="display:none;margin-top:18px;padding:18px 20px;border:1px solid rgba(123,216,143,.5);border-radius:12px;background:rgba(123,216,143,.08);color:#9ae6b4;line-height:1.7"></div>');
+    cf.addEventListener('submit', function (e) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      var ok = $('#svCareerOk'), f = $('#cvFile').files[0], pos = $('#position').value, nm = ($('#firstName').value.trim() + ' ' + $('#lastName').value.trim()).trim();
+      ok.style.display = 'none'; ok.style.color = '#9ae6b4';
+      if (!f) { ok.style.display = 'block'; ok.style.color = '#ff8a80'; ok.textContent = 'Please attach your CV.'; return; }
+      if (!/\.(pdf|docx?)$/i.test(f.name) || f.size > 5 * 1024 * 1024) { ok.style.display = 'block'; ok.style.color = '#ff8a80'; ok.textContent = 'The CV must be a PDF or Word file up to 5MB.'; return; }
+      var orig = sbtn.innerHTML; sbtn.disabled = true; sbtn.innerHTML = 'Sending… <i class="fa-solid fa-spinner fa-spin"></i>';
+      C.sendRequest({ kind: 'career', name: nm, email: $('#email').value.trim(), phone: $('#phone').value.trim(), subject: 'Job Application: ' + pos, message: 'Position: ' + pos + '\n\n' + $('#message').value.trim() }, f)
+        .then(function () { cf.reset(); ok.style.display = 'block'; ok.innerHTML = '<b>Application received ✓</b><br>Thank you, ' + esc($('#firstName').value || nm.split(' ')[0] || '') + '. Our HR team has your details and CV and will contact you if your profile matches.'; if (ok.scrollIntoView) ok.scrollIntoView({ behavior: 'smooth', block: 'center' }); })
+        .catch(function () { ok.style.display = 'block'; ok.style.color = '#ff8a80'; ok.innerHTML = 'Could not send now. Please email your CV to <a href="mailto:info@smartvisiongcs.com" style="color:#D4AF37">info@smartvisiongcs.com</a>.'; })
+        .then(function () { sbtn.disabled = false; sbtn.innerHTML = orig; });
+    }, true);
+  }
+
+  /* swipe / arrows / dots for news with several images */
+  function newsSlider(im) {
+    var img = $('#modalImg'); if (!img) return; var host = img.parentElement;
+    [].slice.call(host.querySelectorAll('.svn,.svd')).forEach(function (x) { x.remove(); });
+    if (im.length < 2) return;
+    if (!$('#svnst')) { var st = document.createElement('style'); st.id = 'svnst'; st.textContent = '.svn{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,.65);border:1px solid rgba(212,175,55,.6);color:#D4AF37;font-size:1.4rem;line-height:1;cursor:pointer;z-index:6;display:flex;align-items:center;justify-content:center;padding:0}.svn.p{left:12px}.svn.n{right:12px}.svn:hover{background:#D4AF37;color:#000}.svd{position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:7px;z-index:6;pointer-events:none}.svd i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.45);display:block;transition:.25s}.svd i.on{background:#D4AF37;width:22px;border-radius:6px}.svcnt{position:absolute;right:12px;bottom:12px;background:rgba(0,0,0,.7);border:1px solid rgba(212,175,55,.5);color:#D4AF37;font:700 .68rem Inter,sans-serif;border-radius:50px;padding:3px 11px;z-index:2}'; document.head.appendChild(st); }
+    if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    host.insertAdjacentHTML('beforeend', '<button type="button" class="svn p" aria-label="Previous image">‹</button><button type="button" class="svn n" aria-label="Next image">›</button><div class="svd">' + im.map(function () { return '<i></i>'; }).join('') + '</div>');
+    var i = 0, dots = [].slice.call(host.querySelectorAll('.svd i'));
+    var go = function (n) { i = (n + im.length) % im.length; img.src = im[i]; dots.forEach(function (d, k) { d.classList.toggle('on', k === i); }); };
+    host.querySelector('.svn.p').onclick = function (e) { e.stopPropagation(); go(i - 1); }; host.querySelector('.svn.n').onclick = function (e) { e.stopPropagation(); go(i + 1); };
+    var x0 = null; img.ontouchstart = function (e) { x0 = e.touches[0].clientX; }; img.ontouchend = function (e) { if (x0 == null) return; var dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1)); x0 = null; };
+    go(0);
+  }
+
   /* ---- Live NEWS (newest first, same card design + modal) ---- */
   var ng = $('.news-grid');
   if (ng && live) get('news').then(function (items) {
@@ -59,14 +104,14 @@
     items.forEach(function (n) {
       var d = new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase();
       var a = document.createElement('article'); a.className = 'news-card'; a.setAttribute('data-dyn', '1'); a.dataset.imgs = JSON.stringify(n.images && n.images.length ? n.images : [n.image_url]);
-      a.innerHTML = '<div class="news-img-wrapper"><img src="' + esc(n.image_url) + '" alt="' + esc(n.title) + '"' + LZ + '><div class="news-date">' + d + '</div></div><div class="news-content"><div class="news-category"><i class="fa-solid fa-newspaper"></i> ' + esc(n.category || 'News') + '</div><h3 class="news-title">' + esc(n.title) + '</h3><p class="news-desc">' + esc((n.body || '').slice(0, 180)) + '</p><div class="news-full-text">' + (n.body || '').split(/\n+/).map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('') + '</div><a href="#" class="read-more-btn">Read Article <i class="fa-solid fa-arrow-right-long"></i></a></div>';
+      a.innerHTML = '<div class="news-img-wrapper"><img src="' + esc(n.image_url) + '" alt="' + esc(n.title) + '"' + LZ + '><div class="news-date">' + d + '</div>' + ((n.images && n.images.length > 1) ? '<span class="svcnt" style="position:absolute;right:12px;bottom:12px;background:rgba(0,0,0,.7);border:1px solid rgba(212,175,55,.5);color:#D4AF37;font:700 .68rem Inter,sans-serif;border-radius:50px;padding:3px 11px"><i class="fa-regular fa-images"></i> ' + n.images.length + '</span>' : '') + '</div><div class="news-content"><div class="news-category"><i class="fa-solid fa-newspaper"></i> ' + esc(n.category || 'News') + '</div><h3 class="news-title">' + esc(n.title) + '</h3><p class="news-desc">' + esc((n.body || '').slice(0, 180)) + '</p><div class="news-full-text">' + (n.body || '').split(/\n+/).map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('') + '</div><a href="#" class="read-more-btn">Read Article <i class="fa-solid fa-arrow-right-long"></i></a></div>';
       ng.insertBefore(a, first);
     });
     ng.addEventListener('click', function (e) {
       var b = e.target.closest('.read-more-btn'), c = b && b.closest('[data-dyn]'); if (!c) return; e.preventDefault();
       $('#modalImg').src = $('img', c).src; $('#modalDate').innerText = $('.news-date', c).innerText; $('#modalCategory').innerHTML = $('.news-category', c).innerHTML;
       $('#modalTitle').innerText = $('.news-title', c).innerText; $('#modalFullText').innerHTML = $('.news-full-text', c).innerHTML;
-      var im = JSON.parse(c.dataset.imgs || '[]'); if (im.length > 1) { $('#modalFullText').insertAdjacentHTML('beforeend', '<div class="svg-th">' + im.map(function (u) { return '<img src="' + esc(u) + '" style="width:72px;height:54px;object-fit:cover;border-radius:6px;margin:12px 8px 0 0;cursor:pointer;border:1px solid rgba(212,175,55,.35)">'; }).join('') + '</div>'); $('#modalFullText .svg-th').onclick = function (e) { if (e.target.tagName === 'IMG') $('#modalImg').src = e.target.src; }; }
+      newsSlider(JSON.parse(c.dataset.imgs || '[]'));
       $('#newsModal').classList.add('active'); document.body.classList.add('modal-open');
     });
   });
