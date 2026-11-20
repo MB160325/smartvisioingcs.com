@@ -46,15 +46,15 @@ Deno.serve(async (req) => {
     const K = await knowledge();
     const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const [n, p, t, pr] = await Promise.all([
-      db.from('news').select('title,category,body,created_at').eq('published', true).order('created_at', { ascending: false }).limit(6),
-      db.from('partners').select('name').eq('published', true).order('sort'),
-      db.from('team').select('name,role,bio,tier').eq('published', true).order('sort'),
+      db.from('news').select('title,category,body,created_at,title_ar,body_ar').eq('published', true).order('created_at', { ascending: false }).limit(6),
+      db.from('partners').select('name,name_ar').eq('published', true).order('sort'),
+      db.from('team').select('name,role,bio,tier,name_ar,role_ar,bio_ar').eq('published', true).order('sort'),
       db.from('projects').select('category').eq('published', true).limit(1000),
     ]);
     const counts: Record<string, number> = {}; (pr.data || []).forEach((x: any) => { counts[x.category] = (counts[x.category] || 0) + 1; });
-    const team = (t.data && t.data.length ? t.data : K?.team || []).map((m: any) => `- ${m.name} — ${m.role}: ${cut(m.bio, 420)}`).join('\n');
-    const news = (n.data || []).map((x: any) => `- [${String(x.created_at).slice(0, 10)}] ${x.title} (${x.category || 'News'}): ${cut(x.body, 300)}`).join('\n');
-    const partners = (p.data && p.data.length ? p.data.map((x: any) => x.name).join(', ') : K?.facts?.partners) || '';
+    const team = (t.data && t.data.length ? t.data : K?.team || []).map((m: any) => `- ${m.name}${m.name_ar ? ' (' + m.name_ar + ')' : ''} — ${m.role}${m.role_ar ? ' / ' + m.role_ar : ''}: ${cut(m.bio, 420)}${m.bio_ar ? ' | AR: ' + cut(m.bio_ar, 300) : ''}`).join('\n');
+    const news = (n.data || []).map((x: any) => `- [${String(x.created_at).slice(0, 10)}] ${x.title}${x.title_ar ? ' / ' + x.title_ar : ''} (${x.category || 'News'}): ${cut(x.body, 300)}${x.body_ar ? ' | AR: ' + cut(x.body_ar, 250) : ''}`).join('\n');
+    const partners = (p.data && p.data.length ? p.data.map((x: any) => x.name + (x.name_ar ? ' / ' + x.name_ar : '')).join(', ') : K?.facts?.partners) || '';
     const pages = Object.entries(K?.pages || {}).map(([k, v]) => `## page: ${k}\n${cut(v, 3500)}`).join('\n\n');
 
     const system = `${String(K?.persona || 'You are the SMART VISION website assistant. Always be helpful and never say you do not know.').replaceAll('{{WA}}', WA)}

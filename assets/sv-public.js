@@ -4,7 +4,7 @@
   var H = { apikey: C.key, Authorization: 'Bearer ' + C.key };
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var get = function (t, o) { return fetch(C.url + '/rest/v1/' + t + '?select=*&published=eq.true&order=' + (o || 'created_at.desc'), { headers: H }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }); };
+  var get = function (t, o) { return fetch(C.url + '/rest/v1/' + t + '?select=*&published=eq.true&order=' + (o || 'created_at.desc'), { headers: H }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) { return (rows || []).map(function (r) { ['title', 'category', 'body', 'description', 'name', 'role', 'bio'].forEach(function (k) { if (!r[k] && r[k + '_ar']) r[k] = r[k + '_ar']; }); return r; }); }).catch(function () { return []; }); };
 
   /* ---- Staff login entry (icon only, keeps the header untouched) ---- */
   var ul = $('.nav-links'), isAr = document.documentElement.lang === 'ar';
@@ -226,17 +226,17 @@
       DY.team = r[0] || []; DY.partners = r[1] || []; DY.news = r[2] || [];
       var T0 = DY.team, P0 = DY.partners, N0 = DY.news.slice(0, 3);
       if (T0.length && BY.team) {
-        var l = T0.map(function (m) { return '• <b>' + esc(m.name) + '</b>' + (m.role ? ' — ' + esc(m.role) : ''); }).join('<br>');
-        BY.team.a = { en: ['Our team (' + T0.length + ' people):<br>' + l + '<br><br>Meet everyone on the <a href="team.html">Team page</a>.'], ar: ['فريق عمل SMART VISION (' + T0.length + '):<br>' + l + '<br><br>تعرّف على الجميع في <a href="team.html">صفحة الفريق</a>.'], eg: ['فريق SMART VISION (' + T0.length + '):<br>' + l + '<br><br>اتعرف على الكل في <a href="team.html">صفحة الفريق</a>.'] };
+        var l = T0.map(function (m) { return '• <b>' + esc(m.name) + '</b>' + (m.role ? ' — ' + esc(m.role) : ''); }).join('<br>'), la = T0.map(function (m) { var nm = m.name_ar || m.name, rl = m.role_ar || m.role; return '• <b>' + esc(nm) + '</b>' + (rl ? ' — ' + esc(rl) : ''); }).join('<br>');
+        BY.team.a = { en: ['Our team (' + T0.length + ' people):<br>' + l + '<br><br>Meet everyone on the <a href="team.html">Team page</a>.'], ar: ['فريق عمل SMART VISION (' + T0.length + '):<br>' + la + '<br><br>تعرّف على الجميع في <a href="team.html">صفحة الفريق</a>.'], eg: ['فريق SMART VISION (' + T0.length + '):<br>' + la + '<br><br>اتعرف على الكل في <a href="team.html">صفحة الفريق</a>.'] };
       }
       if (P0.length && BY.partners) {
-        var n = P0.map(function (p) { return esc(p.name); }).join('، ');
-        BY.partners.a = { en: ['We work with leading developers and firms including <b>' + n.replace(/، /g, ', ') + '</b>. See them on the <a href="partnerships.html">Partnerships page</a>.'], ar: ['نتشارك مع كبرى شركات التطوير والمكاتب ومنها <b>' + n + '</b>. شاهدهم في <a href="partnerships.html">صفحة الشراكات</a>.'], eg: ['بنشتغل مع كبار شركات التطوير والمكاتب زي <b>' + n + '</b>. شوفهم في <a href="partnerships.html">صفحة الشراكات</a>.'] };
+        var n = P0.map(function (p) { return esc(p.name); }).join('، '), na = P0.map(function (p) { return esc(p.name_ar || p.name); }).join('، ');
+        BY.partners.a = { en: ['We work with leading developers and firms including <b>' + n.replace(/، /g, ', ') + '</b>. See them on the <a href="partnerships.html">Partnerships page</a>.'], ar: ['نتشارك مع كبرى شركات التطوير والمكاتب ومنها <b>' + na + '</b>. شاهدهم في <a href="partnerships.html">صفحة الشراكات</a>.'], eg: ['بنشتغل مع كبار شركات التطوير والمكاتب زي <b>' + na + '</b>. شوفهم في <a href="partnerships.html">صفحة الشراكات</a>.'] };
       }
       if (N0.length && BY.news) {
         var d = function (x) { return new Date(x.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); };
-        var nl = N0.map(function (x) { return '• <b>' + esc(x.title) + '</b> (' + d(x) + ')'; }).join('<br>');
-        BY.news.a = { en: ['Our latest news:<br>' + nl + '<br><br>Read more in <a href="news.html">News</a>.'], ar: ['آخر أخبارنا:<br>' + nl + '<br><br>المزيد في <a href="news.html">صفحة الأخبار</a>.'], eg: ['آخر أخبارنا:<br>' + nl + '<br><br>التفاصيل في <a href="news.html">الأخبار</a>.'] };
+        var nl = N0.map(function (x) { return '• <b>' + esc(x.title) + '</b> (' + d(x) + ')'; }).join('<br>'), nla = N0.map(function (x) { return '• <b>' + esc(x.title_ar || x.title) + '</b> (' + new Date(x.created_at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' }) + ')'; }).join('<br>');
+        BY.news.a = { en: ['Our latest news:<br>' + nl + '<br><br>Read more in <a href="news.html">News</a>.'], ar: ['آخر أخبارنا:<br>' + nla + '<br><br>المزيد في <a href="news.html">صفحة الأخبار</a>.'], eg: ['آخر أخبارنا:<br>' + nla + '<br><br>التفاصيل في <a href="news.html">الأخبار</a>.'] };
       }
     }).catch(function () {});
   }

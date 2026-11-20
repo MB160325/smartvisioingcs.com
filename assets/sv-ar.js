@@ -5,6 +5,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var get = function (t, o) { return live ? fetch(C.url + '/rest/v1/' + t + '?select=*&published=eq.true&order=' + (o || 'created_at.desc'), { headers: H }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }) : Promise.resolve([]); };
   var CATS = { Architecture: 'العمارة', Structure: 'الإنشائي', MEP: 'MEP', 'Site Supervision': 'الإشراف على التنفيذ' };
+  var tx = function (r, k) { return r[k + '_ar'] || r[k] || ''; };
   var GEN = /^(architecture|structure|mep|site)\b.*\b(drawing|photo|visual)\b/i;
 
   /* mobile menu */
@@ -48,33 +49,36 @@
       if (!rows.length) return;
       grid.innerHTML = rows.map(function (p) {
         var im = (p.images && p.images.length ? p.images : [p.image_url]).filter(Boolean); if (!im.length) return '';
-        return '<div class="pc" data-cat="' + esc(p.category) + '" data-imgs="' + esc(JSON.stringify(im)) + '"><img src="' + esc(im[0]) + '" alt="' + esc(p.title) + '" loading="lazy" decoding="async">' + (im.length > 1 ? '<span class="pcn"><i class="fa-regular fa-images"></i> ' + im.length + ' صور</span>' : '') + '<div class="ov"><small>' + esc(CATS[p.category] || p.category) + '</small>' + (GEN.test(p.title || '') ? '' : '<b>' + esc(p.title) + '</b>') + '</div></div>';
+        return '<div class="pc" data-cat="' + esc(p.category) + '" data-imgs="' + esc(JSON.stringify(im)) + '"><img src="' + esc(im[0]) + '" alt="' + esc(tx(p, 'title')) + '" loading="lazy" decoding="async">' + (im.length > 1 ? '<span class="pcn"><i class="fa-regular fa-images"></i> ' + im.length + ' صور</span>' : '') + '<div class="ov"><small>' + esc(CATS[p.category] || p.category) + '</small>' + (!p.title_ar && GEN.test(p.title || '') ? '' : '<b>' + esc(tx(p, 'title')) + '</b>') + '</div></div>';
       }).join(''); bind(); flt();
     });
   }
 
-  /* team: Arabic static cards + members added from the dashboard */
+  /* team / news / partners: Arabic fields from the dashboard. Static Arabic content is the offline fallback;
+     when the dashboard holds the imported originals it takes over completely, otherwise new items are added to it. */
   var ex = $('#exec'), mem = $('#members');
   var tcard = function (n, r, b, img, e) { return '<div class="tm' + (e ? ' ex' : '') + '" data-n="' + esc(n) + '" data-r="' + esc(r) + '" data-b="' + esc(b) + '" data-i="' + esc(img) + '"><img src="' + esc(img) + '" alt="' + esc(n) + '" loading="lazy" decoding="async"><div class="bd"><b>' + esc(n) + '</b><span>' + esc(r) + '</span></div></div>'; };
   if (ex || mem) {
     document.addEventListener('click', function (e) { var c = e.target.closest('.tm'); if (!c) return; openMd('<img src="' + esc(c.dataset.i) + '" alt=""><div class="mc"><small>' + esc(c.dataset.r) + '</small><h3>' + esc(c.dataset.n) + '</h3><p>' + esc(c.dataset.b).replace(/\n+/g, '</p><p>') + '</p></div>'); });
-    get('team', 'sort.asc,created_at.asc').then(function (rows) { rows.filter(function (x) { return !x.legacy; }).forEach(function (m) { var t = m.tier === 'executive', box = t ? ex : mem; if (box) box.insertAdjacentHTML('beforeend', tcard(m.name, m.role || '', m.bio || '', m.photo_url, t)); }); });
+    get('team', 'sort.asc,created_at.asc').then(function (rows) {
+      if (!rows.length) return; if (rows.some(function (x) { return x.legacy; })) { if (ex) ex.innerHTML = ''; if (mem) mem.innerHTML = ''; }
+      rows.forEach(function (m) { var t = m.tier === 'executive', box = t ? ex : mem; if (box) box.insertAdjacentHTML('beforeend', tcard(tx(m, 'name'), tx(m, 'role'), tx(m, 'bio'), m.photo_url, t)); });
+    });
   }
-
-  /* news: Arabic static articles + articles published from the dashboard */
   var nl = $('#nlist');
   if (nl) {
-    var ncard = function (n) { var d = new Date(n.created_at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' }); return '<article class="nc" data-imgs="' + esc(JSON.stringify(n.images && n.images.length ? n.images : [n.image_url])) + '" data-t="' + esc(n.title) + '" data-c="' + esc(n.category || 'أخبار') + '" data-d="' + esc(d) + '" data-i="' + esc(n.image_url) + '" data-b="' + esc(n.body || '') + '"><img src="' + esc(n.image_url) + '" alt="' + esc(n.title) + '" loading="lazy" decoding="async"><div class="bd"><small>' + esc(n.category || 'أخبار') + '</small><h3>' + esc(n.title) + '</h3><p>' + esc((n.body || '').slice(0, 130)) + '…</p><span class="dt">' + d + '</span></div><span class="rm">اقرأ المقال ←</span></article>'; };
+    var ncard = function (n) { var d = new Date(n.created_at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' }), t = tx(n, 'title'), c = tx(n, 'category') || 'أخبار', b = tx(n, 'body'); return '<article class="nc" data-imgs="' + esc(JSON.stringify(n.images && n.images.length ? n.images : [n.image_url])) + '" data-t="' + esc(t) + '" data-c="' + esc(c) + '" data-d="' + esc(d) + '" data-i="' + esc(n.image_url) + '" data-b="' + esc(b) + '"><img src="' + esc(n.image_url) + '" alt="' + esc(t) + '" loading="lazy" decoding="async"><div class="bd"><small>' + esc(c) + '</small><h3>' + esc(t) + '</h3><p>' + esc(b.slice(0, 130)) + '…</p><span class="dt">' + d + '</span></div><span class="rm">اقرأ المقال ←</span></article>'; };
     nl.addEventListener('click', function (e) {
       var c = e.target.closest('.nc'); if (!c) return; var im = []; try { im = JSON.parse(c.dataset.imgs || '[]'); } catch (x) {} if (!im.length) im = [c.dataset.i];
       openMd(sliderHtml(im) + '<div class="mc"><small>' + esc(c.dataset.c) + ' · ' + esc(c.dataset.d) + (im.length > 1 ? ' · ' + im.length + ' صور' : '') + '</small><h3>' + esc(c.dataset.t) + '</h3><p>' + esc(c.dataset.b).replace(/\n+/g, '</p><p>') + '</p></div>'); slide($('#mdc .sl'), im);
     });
-    get('news').then(function (rows) { var fresh = rows.filter(function (x) { return !x.legacy; }); if (fresh.length) nl.insertAdjacentHTML('afterbegin', fresh.map(ncard).join('')); });
+    get('news').then(function (rows) { if (!rows.length) return; var L = rows.some(function (x) { return x.legacy; }); if (L) nl.innerHTML = ''; nl.insertAdjacentHTML(L ? 'beforeend' : 'afterbegin', rows.map(ncard).join('')); });
   }
-
-  /* partners added from the dashboard */
   var pl = $('#ptl');
-  if (pl) get('partners', 'sort.asc,created_at.asc').then(function (rows) { rows.filter(function (x) { return !x.legacy; }).forEach(function (p) { pl.insertAdjacentHTML('beforeend', '<div class="ptc"><div class="lg"><img src="' + esc(p.logo_url) + '" alt="' + esc(p.name) + '" loading="lazy"></div><b>' + esc(p.name) + '</b></div>'); }); });
+  if (pl) get('partners', 'sort.asc,created_at.asc').then(function (rows) {
+    if (!rows.length) return; if (rows.some(function (x) { return x.legacy; })) pl.innerHTML = '';
+    rows.forEach(function (p) { pl.insertAdjacentHTML('beforeend', '<div class="ptc"><div class="lg"><img src="' + esc(p.logo_url) + '" alt="' + esc(tx(p, 'name')) + '" loading="lazy"></div><b>' + esc(tx(p, 'name')) + '</b></div>'); });
+  });
 
   /* request forms (contact, consultation, career) → dashboard + email to admins */
   $$('form.rqf').forEach(function (f) {
